@@ -1,0 +1,37 @@
+name: Meeting Reminders
+ 
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # 每 15 分鐘檢查一次（GitHub 排程為 UTC，實際觸發可能有數分鐘延遲）
+  workflow_dispatch: {}       # 允許手動在 Actions 頁面測試執行
+ 
+permissions:
+  contents: write            # 需要這個權限才能把「已通知」狀態存回這個 repo
+ 
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+ 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+ 
+      - name: Send meeting reminders
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MY_NAME: ${{ vars.MY_NAME }}
+        run: node scripts/notify.mjs
+ 
+      - name: Save notification state
+        run: |
+          git config user.name "reminder-bot"
+          git config user.email "reminder-bot@users.noreply.github.com"
+          git add data/state.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update notification state"
+            git push
+          fi
+ 
